@@ -1,0 +1,44 @@
+*{margin: 0;
+padding: 0;
+}
+
+body {
+    font-family: sans-serif;
+    font-size: 12px;
+}
+
+img {
+    padding-top: 1em;/* margen superior de imagen*/
+    width: 20%;
+} 
+
+nav {
+    background-color: steelblue;
+    text-align: center;
+}
+
+nav a { /* modificar etiquetas a que se encuentren dentro de nav*/
+    color: #fff;
+    display: inline-block;
+    padding: 0.5em;
+    text-decoration: none;
+}
+
+nav a:hover {
+    color: tomato; /* para colorear enlaces cuando se pasa sobre ellos con el mouse*/
+}
+
+section {
+    height: auto;
+    width: 60%;
+}
+
+article {
+    margin-top: 0.5em;
+    border: 1px solid #ccc;
+    padding: 1em;
+}
+
+p {
+    text-align: justify;
+}
