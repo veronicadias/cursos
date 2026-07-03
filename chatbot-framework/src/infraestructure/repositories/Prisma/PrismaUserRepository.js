@@ -31,13 +31,17 @@ class PrismaUserRepository extends IUserRepository {
     }
 
     async create(data) {
-
         return this.prisma.user.create({
-
-            data
-
+            data: {
+                externalId: data.externalId,
+                name: data.name,
+                channel: {
+                    connect: {
+                        name: data.channel
+                    }
+                }
+            }
         });
-
     }
 
     async update(id, data) {
