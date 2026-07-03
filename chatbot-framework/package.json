@@ -1,0 +1,51 @@
+{
+  "name": "chatbot-framework",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Al finalizar tendrás un proyecto capaz de:",
+  "main": "index.js",
+  "directories": {
+    "test": "tests"
+  },
+  "scripts": {
+    "dev": "tsx watch src/bootstrap.js",
+    "start": "node src/bootstrap.js",
+    "test": "vitest",
+    "test:watch": "vitest --watch",
+    "lint": "eslint src",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:studio": "prisma studio"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@langchain/core": "^1.2.1",
+    "@langchain/ollama": "^1.3.0",
+    "@prisma/client": "^6.19.3",
+    "compression": "^1.8.1",
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^4.21.2",
+    "express-rate-limit": "^8.5.2",
+    "helmet": "^8.2.0",
+    "jsonwebtoken": "^9.0.3",
+    "langchain": "^1.5.2",
+    "pg": "^8.22.0",
+    "socket.io": "^4.8.3",
+    "uuid": "^14.0.1",
+    "winston": "^3.19.0",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "eslint": "^9.39.4",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-import": "^2.32.0",
+    "prettier": "^3.9.4",
+    "prisma": "^6.19.3",
+    "supertest": "^7.2.2",
+    "tsx": "^4.22.5",
+    "vitest": "^4.1.9"
+  }
+}

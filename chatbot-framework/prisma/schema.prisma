@@ -1,0 +1,203 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+// generator client {
+//  provider = "prisma-client"
+//  output   = "../src/generated/prisma"
+//}
+
+//datasource db {
+//  provider = "postgresql"
+//}
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User
+// model User {
+//   id          String   @id @default(uuid())
+//   externalId  String
+//   channel     String
+//   name        String?
+//   conversations Conversation[]
+//   createdAt DateTime @default(now())
+//   updatedAt DateTime @updatedAt
+
+// }
+
+// // Conversation
+// model Conversation {
+//   id String @id @default(uuid())
+//   userId String
+//   summary String?
+//   status String @default("ACTIVE")
+//   user User @relation(fields: [userId], references: [id])
+//   messages Message[]
+//   createdAt DateTime @default(now())
+//   updatedAt DateTime @updatedAt
+// }
+
+// // Message
+// model Message {
+//   id String @id @default(uuid())
+//   conversationId String
+//   role String
+//   content String
+//   tokens Int?
+//   conversation Conversation @relation(fields:[conversationId],references:[id])
+//   createdAt DateTime @default(now())
+// }
+
+// // Prompt
+// model Prompt {
+//   id String @id @default(uuid())
+//   name String @unique
+//   content String
+//   active Boolean @default(true)
+//   createdAt DateTime @default(now())
+// }
+
+// // BotConfig
+// model BotConfig {
+//   id String @id @default(uuid())
+//   defaultModel String
+//   temperature Float
+//   summaryLimit Int
+// }
+
+model Channel {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  users       User[]
+  createdAt   DateTime @default(now())
+}
+
+// Ejemplos:
+
+// id	name
+// 1	WHATSAPP
+// 2	TELEGRAM
+// 3	WEBCHAT
+// 2. User
+model User {
+  id            String         @id @default(uuid())
+  externalId    String
+  name          String?
+  channelId     String
+  channel       Channel        @relation(fields: [channelId], references: [id])
+  conversations Conversation[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  @@unique([externalId, channelId])
+}
+
+// 3. Conversation
+model Conversation {
+  id                  String               @id @default(uuid())
+  userId              String
+  status              ConversationStatus   @default(ACTIVE)
+  summary             String?
+  lastSummaryAt       DateTime?
+  user                User                 @relation(fields: [userId], references: [id])
+  messages            Message[]
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  conversationSummary ConversationSummary?
+}
+
+// 4. Message
+model Message {
+  id             String       @id @default(uuid())
+  conversationId String
+  role           MessageRole
+  content        String
+  tokens         Int?
+  conversation   Conversation @relation(fields: [conversationId], references: [id])
+  createdAt      DateTime     @default(now())
+}
+
+// 5. Prompt
+model Prompt {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  content     String
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// Ejemplos:
+
+// name
+// SYSTEM
+// SUMMARY
+// TOOLS
+
+// 6. AIModel
+model AIModel {
+  id          String  @id @default(uuid())
+  provider    String
+  model       String
+  temperature Float
+  active      Boolean @default(true)
+}
+
+// Ejemplos
+// provider	model
+// OLLAMA	qwen3:4b
+// OPENAI	gpt-5
+// GROK	grok-4
+
+// 7. BotConfiguration
+model BotConfiguration {
+  id              String  @id @default(uuid())
+  summaryLimit    Int
+  defaultPromptId String?
+  defaultModelId  String?
+}
+
+// 8. Tool
+model Tool {
+  id          String  @id @default(uuid())
+  name        String  @unique
+  description String
+  enabled     Boolean @default(true)
+}
+
+// Enums
+enum ConversationStatus {
+  ACTIVE
+  CLOSED
+  ARCHIVED
+}
+
+enum MessageRole {
+  SYSTEM
+  USER
+  ASSISTANT
+  TOOL
+}
+
+model ConversationSummary {
+  id             String       @id @default(uuid())
+  conversationId String       @unique
+  content        String
+  model          String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  conversation   Conversation @relation(fields: [conversationId], references: [id])
+}
+
+// Permite guardar metadatos (modelo utilizado, fecha de actualización, versión del resumen).
+// Si mañana quieres cambiar la estrategia de resumen o almacenar más información, no tendrás que modificar Conversation.
+// Mantiene una separación clara de responsabilidades.
