@@ -73,11 +73,12 @@ datasource db {
 // }
 
 model Channel {
-  id          String   @id @default(uuid())
-  name        String   @unique
-  description String?
-  users       User[]
-  createdAt   DateTime @default(now())
+  id            String         @id @default(uuid())
+  name          String         @unique
+  description   String?
+  users         User[]
+  createdAt     DateTime       @default(now())
+  conversations Conversation[]
 }
 
 // Ejemplos:
@@ -88,31 +89,54 @@ model Channel {
 // 3	WEBCHAT
 // 2. User
 model User {
-  id            String         @id @default(uuid())
-  externalId    String
-  name          String?
-  channelId     String
-  channel       Channel        @relation(fields: [channelId], references: [id])
-  conversations Conversation[]
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
+  id         String  @id @default(uuid())
+  externalId String
+  name       String?
 
-  @@unique([externalId, channelId])
+  conversations Conversation[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  channel   Channel? @relation(fields: [channelId], references: [id])
+  channelId String?
 }
 
 // 3. Conversation
+// model Conversation {
+//   id                  String               @id @default(uuid())
+//   userId              String
+//   status              ConversationStatus   @default(ACTIVE)
+//   summary             String?
+//   lastSummaryAt       DateTime?
+//   user                User                 @relation(fields: [userId], references: [id])
+//   messages            Message[]
+//   createdAt           DateTime             @default(now())
+//   updatedAt           DateTime             @updatedAt
+//   conversationSummary ConversationSummary?
+// }
 model Conversation {
-  id                  String               @id @default(uuid())
-  userId              String
-  status              ConversationStatus   @default(ACTIVE)
-  summary             String?
-  lastSummaryAt       DateTime?
-  user                User                 @relation(fields: [userId], references: [id])
-  messages            Message[]
+  id String @id @default(uuid())
+
+  userId String
+  user   User               @relation(fields: [userId], references: [id])
+  status ConversationStatus @default(ACTIVE)
+
+  channelId String
+  channel   Channel @relation(fields: [channelId], references: [id])
+
+  summary String?
+
+  messages Message[]
+
   createdAt           DateTime             @default(now())
-  updatedAt           DateTime             @updatedAt
   conversationSummary ConversationSummary?
 }
+
+// enum ConversationStatus {
+//   ACTIVE
+//   CLOSED
+//   ARCHIVED
+// }
 
 // 4. Message
 model Message {
@@ -126,14 +150,23 @@ model Message {
 }
 
 // 5. Prompt
+// model Prompt {
+//   id          String   @id @default(uuid())
+//   name        String   @unique
+//   description String?
+//   content     String
+//   active      Boolean  @default(true)
+//   createdAt   DateTime @default(now())
+//   updatedAt   DateTime @updatedAt
+// }
 model Prompt {
-  id          String   @id @default(uuid())
-  name        String   @unique
-  description String?
-  content     String
-  active      Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id        String   @id @default(cuid())
+  name      String
+  type      String
+  content   String   @db.Text
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 // Ejemplos:
