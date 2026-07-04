@@ -1,9 +1,0 @@
-2026-07-03T22:47:16.020Z [info] POST /users 400 21ms
-2026-07-03T22:47:29.549Z [info] GET /users/06d48366-3f10-4475-9f01-e2f7d62a33271 404 136ms
-2026-07-03T22:55:32.332Z [info] GET /users/06d48366-3f10-4475-9f01-e2f7d62a33271 404 100ms
-{"level":"info","message":{"duration":"58ms","event":"HTTP Request","method":"GET","status":404,"url":"/users/06d48366-3f10-4475-9f01-e2f7d62a33271"},"timestamp":"2026-07-03T23:02:24.720Z"}
-2026-07-03T23:02:24.722Z [info] GET /users/06d48366-3f10-4475-9f01-e2f7d62a33271 404 61ms
-{"level":"info","message":{"duration":"26ms","event":"HTTP Request","method":"POST","status":400,"url":"/users"},"timestamp":"2026-07-03T23:02:57.589Z"}
-2026-07-03T23:02:57.590Z [info] POST /users 400 4ms
-{"level":"info","message":{"0":"H","1":"T","10":"S","11":"T","2":"T","3":"P","4":"_","5":"R","6":"E","7":"Q","8":"U","9":"E","context":null},"timestamp":"2026-07-03T23:31:07.915Z"}
-2026-07-03T23:31:07.922Z [info] POST /users 400 16ms
