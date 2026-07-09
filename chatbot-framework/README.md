@@ -3584,7 +3584,7 @@ Eso no es un UseCase simple.
 
 Por eso vamos a introducir una capa de Services.
 
-La arquitectura que propongo
+## La arquitectura que propongo
 HTTP
 │
 ├── Controllers
@@ -3596,6 +3596,7 @@ HTTP
 ├── Repositories
 │
 └── Infrastructure
+
 Diferencia entre UseCase y Service
 UseCase
 
@@ -3728,7 +3729,7 @@ Esa base la reutilizarán todos los módulos (Users, Conversations, IA, WhatsApp
 
 Perfecto. Esta es una de esas partes que casi nadie hace al principio y después termina con try/catch por todos lados. Si construimos esto bien ahora, el resto del framework será mucho más limpio.
 
-Objetivo
+## Objetivo
 
 Queremos pasar de esto:
 
@@ -3752,14 +3753,15 @@ async create(req, res, next) {
 
 Y que un único middleware se encargue de responder todos los errores.
 
-Paso 1 - Crear la carpeta
+## Paso 1 - Crear la carpeta
 src/
 │
 └── shared/
     ├── errors/
     ├── middleware/
     └── response/
-Paso 2 - AppError
+
+## Paso 2 - AppError
 
 src/shared/errors/AppError.js
 
@@ -3783,7 +3785,7 @@ export default class AppError extends Error {
 
 Será la clase base para todos los errores.
 
-Paso 3 - NotFoundError
+## Paso 3 - NotFoundError
 
 NotFoundError.js
 
@@ -3798,7 +3800,8 @@ export default class NotFoundError extends AppError {
     }
 
 }
-Paso 4 - ValidationError
+
+## Paso 4 - ValidationError
 import AppError from "./AppError.js";
 
 export default class ValidationError extends AppError {
@@ -3810,7 +3813,8 @@ export default class ValidationError extends AppError {
     }
 
 }
-Paso 5 - ConflictError
+
+## Paso 5 - ConflictError
 
 Lo vamos a necesitar cuando exista un usuario.
 
@@ -3825,7 +3829,8 @@ export default class ConflictError extends AppError {
     }
 
 }
-Paso 6 - ApiResponse
+
+## Paso 6 - ApiResponse
 
 shared/response/ApiResponse.js
 
@@ -3861,7 +3866,7 @@ export default class ApiResponse {
 
 Así todas las respuestas tendrán el mismo formato.
 
-Paso 7 - Error Middleware
+## Paso 7 - Error Middleware
 
 shared/middleware/errorHandler.js
 
@@ -3901,7 +3906,8 @@ export default function errorHandler(err, req, res, next) {
         );
 
 }
-Paso 8 - Registrar el middleware
+
+## Paso 8 - Registrar el middleware
 
 En app.js, siempre al final:
 
@@ -3913,7 +3919,7 @@ app.use(errorHandler);
 
 Debe ir después de todas las rutas.
 
-Paso 9 - Modificar el controlador
+## Paso 9 - Modificar el controlador
 
 En lugar de:
 
@@ -3949,7 +3955,7 @@ async create(req, res, next) {
 
 Y lo mismo para find().
 
-Paso 10 - Empezar a usar AppError
+## Paso 10 - Empezar a usar AppError
 
 Por ejemplo, en FindUserUseCase:
 
@@ -4039,6 +4045,7 @@ src/
     │
     └── response/
         └── ApiResponse.js
+
 asyncHandler.js
 export default function asyncHandler(handler) {
     return async (req, res, next) => {
@@ -4165,7 +4172,7 @@ UseCase
 
 Así evitamos que datos inválidos lleguen a la lógica de negocio.
 
-Paso 1
+# Paso 1
 
 Crea una carpeta nueva
 
@@ -4176,7 +4183,8 @@ src/
 └── interfaces/
     └── http/
         └── validators/
-Paso 2
+
+## Paso 2
 user.validator.js
 import { z } from "zod";
 
@@ -4196,7 +4204,8 @@ export const createUserSchema = z.object({
         .min(1)
 
 });
-Paso 3
+
+## Paso 3
 
 Creamos un middleware reutilizable.
 
@@ -4236,7 +4245,7 @@ Lanza un error.
 
 Nuestro errorHandler hará el resto.
 
-Paso 4
+## Paso 4
 
 En las rutas.
 
@@ -4349,13 +4358,14 @@ Me parece una muy buena idea. Zod es mucho más que validar si un campo existe. 
 
 Yo dedicaría un rato a dejar una infraestructura de validación robusta.
 
-Nivel 1 - Validaciones básicas (ya lo hicimos)
+## Nivel 1 - Validaciones básicas (ya lo hicimos)
 const createUserSchema = z.object({
     externalId: z.string().min(1),
     name: z.string().min(2),
     channel: z.string().min(1)
 });
-Nivel 2 - Mensajes personalizados
+
+## Nivel 2 - Mensajes personalizados
 
 No me gustan los mensajes por defecto de Zod.
 
@@ -4389,7 +4399,7 @@ export const createUserSchema = z.object({
 
 Ya queda mucho más amigable.
 
-Nivel 3 - Enum
+## Nivel 3 - Enum
 
 No quiero que cualquiera pueda enviar cualquier canal.
 
@@ -4418,7 +4428,7 @@ const ChannelEnum = z.enum([
 
 Y listo.
 
-Nivel 4 - Schemas reutilizables
+## Nivel 4 - Schemas reutilizables
 
 No queremos repetir reglas.
 
@@ -4460,7 +4470,7 @@ export const createUserSchema = z.object({
 
 Ahora todas las validaciones usan las mismas reglas.
 
-Nivel 5 - Validar parámetros
+## Nivel 5 - Validar parámetros
 
 No solo el body.
 
@@ -4517,7 +4527,7 @@ validate(querySchema, "query")
 
 Muchísimo más flexible.
 
-Nivel 6 - Separar Create y Update
+## Nivel 6 - Separar Create y Update
 
 Nunca reutilizaría el mismo schema.
 
@@ -4531,7 +4541,8 @@ todos los campos son opcionales
 Mientras que Create:
 
 son obligatorios.
-Nivel 7 - DTO
+
+## Nivel 7 - DTO
 
 Aquí empieza a parecerse a un framework profesional.
 
@@ -4548,7 +4559,7 @@ await createUserUseCase.execute(dto);
 
 Ya nunca llega información inválida al UseCase.
 
-Nivel 8 - Validaciones de negocio
+## Nivel 8 - Validaciones de negocio
 
 Zod valida la estructura.
 
@@ -4858,6 +4869,275 @@ Mi recomendación
 No implementaría todavía WhatsApp ni Ollama. Primero construiría el módulo Conversation completo (igual que hicimos con User). Cuando Conversation y Message estén listos, conectar la IA será muy sencillo, porque ya tendrás dónde persistir el historial y el resumen de las conversaciones. Esa secuencia hará que cada nueva pieza encaje de forma natural con la arquitectura que ya construiste.
 
 --------------------------------------------------------------------------------------------------
+
+Perfecto. Llegamos a la parte más interesante. 😊
+
+Hasta ahora construimos la infraestructura. A partir de ahora construiremos el motor del chatbot, pensando desde el primer día en soportar:
+
+✅ WhatsApp
+✅ Telegram
+✅ Web
+✅ Socket.io
+✅ Ollama
+✅ OpenAI
+✅ Grok
+✅ Claude
+✅ Memoria de conversaciones
+✅ Resumen automático
+✅ Cambio de modelo de IA sin modificar el resto del código
+
+Primero pensemos la arquitectura
+
+En lugar de ir directamente a Conversation, quiero mostrarte cómo veo el flujo completo.
+
+                           Mensaje Entrante
+                                   │
+                                   ▼
+                        Channel Adapter (WhatsApp, Telegram, Web)
+                                   │
+                                   ▼
+                     ConversationOrchestrator (Fachada principal)
+                                   │
+          ┌────────────────────────┼────────────────────────┐
+          ▼                        ▼                        ▼
+     UserService          ConversationService        PromptService
+          │                        │                        │
+          └──────────────┬─────────┴──────────────┬─────────┘
+                         ▼                        ▼
+                 MessageService            AIProviderFacade
+                                                 │
+                          ┌──────────────────────┼───────────────────────┐
+                          ▼                      ▼                       ▼
+                     OllamaProvider        OpenAIProvider         GrokProvider
+
+Observa que ningún canal habla directamente con la IA.
+
+Todos hablan con:
+
+ConversationOrchestrator
+
+Ese será el corazón del framework.
+
+Entonces ¿qué hacemos primero?
+
+No empezaría por la IA.
+
+Primero necesitamos tener dónde guardar una conversación.
+
+Primera entidad importante
+Conversation
+
+No es solamente una tabla.
+
+Debe representar una conversación viva.
+
+Usuario
+
+↓
+
+Conversation
+
+↓
+
+Message
+
+↓
+
+Message
+
+↓
+
+Message
+
+↓
+
+Summary
+
+Modelo que te propongo
+model Conversation {
+  id String @id @default(uuid())
+  userId String
+  user User @relation(fields:[userId],references:[id])
+  status ConversationStatus @default(ACTIVE)
+  title String?
+  summary String?
+  aiProvider String?
+  model String?
+  lastMessageAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  messages Message[]
+}
+
+Observa algunas cosas interesantes.
+
+aiProvider
+OLLAMA
+
+o
+
+OPENAI
+model
+qwen3:4b
+llama3.1
+gpt-4.1
+
+Así una conversación puede comenzar con Ollama y luego cambiar a GPT si el usuario lo decide.
+
+summary
+
+Aquí vivirá el resumen generado por otra IA.
+
+status
+
+No me gusta guardar booleanos.
+
+Prefiero:
+ACTIVE
+CLOSED
+ARCHIVED
+
+Segunda entidad
+Message
+model Message {
+  id String @id @default(uuid())
+  conversationId String
+  conversation Conversation @relation(fields:[conversationId],references:[id])
+  role MessageRole
+  content String
+  tokens Int?
+  promptTokens Int?
+  completionTokens Int?
+  createdAt DateTime @default(now())
+}
+
+role
+No usaría strings.
+USER
+ASSISTANT
+SYSTEM
+
+¿Por qué guardar tokens?
+
+Porque después podremos saber:
+La conversación tiene 14000 tokens.
+
+Entonces automáticamente:
+
+↓
+
+Resumen
+
+↓
+
+Vaciar historial
+
+↓
+
+Guardar summary
+
+Eso era justamente uno de tus requerimientos.
+
+Luego
+Prompt
+
+Esta tabla será muy poderosa.
+
+model Prompt {
+  id String @id @default(uuid())
+  name String @unique
+  description String?
+  content String
+  active Boolean @default(true)
+  createdAt DateTime @default(now())
+}
+
+Ejemplo
+
+name
+
+MAIN_ASSISTANT
+
+content
+
+Eres un asistente jurídico...
+
+Otro
+
+SUMMARY
+
+contenido
+
+Eres un experto resumidor...
+
+No habrá prompts en el código.
+
+Todo estará en la base.
+
+Después aparece el verdadero cerebro
+ConversationOrchestrator
+
+Será algo así:
+
+process(channel, externalId, message)
+
+Internamente hará:
+
+Buscar usuario
+
+↓
+
+Crear usuario si no existe
+
+↓
+
+Buscar conversación
+
+↓
+
+Crear conversación
+
+↓
+
+Guardar mensaje
+
+↓
+
+Obtener prompt
+
+↓
+
+Consultar IA
+
+↓
+
+Guardar respuesta
+
+↓
+
+Responder al canal
+
+Observa que el canal no sabe absolutamente nada.
+
+Mi propuesta
+No construiría Conversation igual que User.
+
+User era un CRUD.
+
+Conversation no es un CRUD.
+
+Conversation es un agregado de dominio (Aggregate Root en DDD).
+
+Yo empezaría creando primero las entidades de persistencia (Conversation, Message y Prompt) y sus repositorios, pero sin exponer endpoints CRUD completos.
+
+El primer caso de uso importante sería algo como:
+
+ProcessIncomingMessageUseCase
+
+porque refleja el comportamiento real del chatbot. Ese caso de uso será el núcleo del sistema y utilizará internamente Conversation, Message, User, Prompt y el AIProvider. Creo que ese enfoque encaja mucho mejor con el tipo de aplicación que estás construyendo que modelar conversaciones como un CRUD tradicional.
+
+---------------------------------------------------------------------------------------------------------------
+
 
 
 # Compilar
