@@ -576,7 +576,7 @@ docker compose up -d
 Si aún no lo tienes:
 
 Instala Ollama. Desde el sitio oficial.
-Verificar que este funcionando:
+Verificar que este funcionando, 1ero reiniciar visual studio code: 
 ollama --version 
 <!-- se ve ollama version 0.x.x -->
 ollama list
