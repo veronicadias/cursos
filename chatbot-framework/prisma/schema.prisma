@@ -128,6 +128,11 @@ model Conversation {
 
   messages Message[]
 
+  title String?
+  aiProvider String?
+  model String?
+  lastMessageAt DateTime?
+  updatedAt DateTime @updatedAt
   createdAt           DateTime             @default(now())
   conversationSummary ConversationSummary?
 }
@@ -147,6 +152,8 @@ model Message {
   tokens         Int?
   conversation   Conversation @relation(fields: [conversationId], references: [id])
   createdAt      DateTime     @default(now())
+  promptTokens Int?
+  completionTokens Int?
 }
 
 // 5. Prompt
@@ -165,6 +172,7 @@ model Prompt {
   type      String
   content   String   @db.Text
   active    Boolean  @default(true)
+  description String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }

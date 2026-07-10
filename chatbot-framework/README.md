@@ -4872,7 +4872,8 @@ No implementaría todavía WhatsApp ni Ollama. Primero construiría el módulo C
 
 Perfecto. Llegamos a la parte más interesante. 😊
 
-Hasta ahora construimos la infraestructura. A partir de ahora construiremos el motor del chatbot, pensando desde el primer día en soportar:
+Hasta ahora construimos la infraestructura. 
+## A partir de ahora construiremos el motor del chatbot, pensando desde el primer día en soportar:
 
 ✅ WhatsApp
 ✅ Telegram
@@ -4924,8 +4925,7 @@ No empezaría por la IA.
 
 Primero necesitamos tener dónde guardar una conversación.
 
-Primera entidad importante
-Conversation
+Primera entidad importante: Conversation
 
 No es solamente una tabla.
 
@@ -4953,7 +4953,7 @@ Message
 
 Summary
 
-Modelo que te propongo
+## Modelo que te propongo
 model Conversation {
   id String @id @default(uuid())
   userId String
@@ -4971,33 +4971,25 @@ model Conversation {
 
 Observa algunas cosas interesantes.
 
-aiProvider
-OLLAMA
-
-o
-
-OPENAI
-model
-qwen3:4b
-llama3.1
-gpt-4.1
+aiProvider: OLLAMA o OPENAI
+model: 
+    qwen3:4b
+    llama3.1
+    gpt-4.1
 
 Así una conversación puede comenzar con Ollama y luego cambiar a GPT si el usuario lo decide.
 
 summary
-
 Aquí vivirá el resumen generado por otra IA.
 
 status
-
 No me gusta guardar booleanos.
-
 Prefiero:
 ACTIVE
 CLOSED
 ARCHIVED
 
-Segunda entidad
+### Segunda entidad
 Message
 model Message {
   id String @id @default(uuid())
@@ -5038,7 +5030,7 @@ Guardar summary
 
 Eso era justamente uno de tus requerimientos.
 
-Luego
+### Luego
 Prompt
 
 Esta tabla será muy poderosa.
@@ -5054,21 +5046,15 @@ model Prompt {
 
 Ejemplo
 
-name
+name: MAIN_ASSISTANT
 
-MAIN_ASSISTANT
-
-content
-
-Eres un asistente jurídico...
+content: Eres un asistente jurídico...
 
 Otro
 
 SUMMARY
 
-contenido
-
-Eres un experto resumidor...
+contenido: Eres un experto resumidor...
 
 No habrá prompts en el código.
 
@@ -5138,13 +5124,408 @@ porque refleja el comportamiento real del chatbot. Ese caso de uso será el núc
 
 ---------------------------------------------------------------------------------------------------------------
 
+¡Sí, por supuesto! No hace falta que Docker funcione para seguir avanzando con la arquitectura. Podemos dejar ese problema para más adelante.
 
+De hecho, ya tenemos:
+
+✅ Configuración
+✅ Prisma
+✅ Repositories
+✅ Use Cases
+✅ Controllers
+✅ Logger
+✅ Validaciones
+✅ Usuario
+
+Ahora podemos empezar con el núcleo del chatbot.
+
+Mi propuesta
+
+En lugar de crear un CRUD de Conversation, vamos a diseñar el flujo real de un chatbot.
+
+## Paso 1: Modelar el dominio
+
+Las entidades principales serán:
+
+User
+│
+├── Conversation
+│       │
+│       ├── Message
+│       └── Summary
+│
+└── Channel
+
+Y por otro lado:
+
+Prompt
+
+AIProvider
+
+ConversationOrchestrator
+
+## Paso 2: Crear las interfaces del dominio
+
+Igual que hicimos con IUserRepository, vamos a crear:
+
+src/
+└── domain/
+    ├── repositories/
+    │   ├── IConversationRepository.js
+    │   ├── IMessageRepository.js
+    │   └── IPromptRepository.js
+    │
+    ├── ai/
+    │   └── IAIProvider.js
+    │
+    └── entities/
+        ├── Conversation.js
+        ├── Message.js
+        └── Prompt.js
+
+Por ahora las entidades pueden ser simples clases con sus propiedades.
+
+Por ejemplo:
+
+export default class Conversation {
+    constructor(data) {
+        Object.assign(this, data);
+    }
+}
+
+Más adelante podremos agregar reglas de negocio (por ejemplo, saber si una conversación está activa, si necesita resumirse, etc.).
+
+## Paso 3: El primer servicio importante
+
+En vez de crear un ConversationController, vamos a crear el servicio que coordinará todo.
+
+src/
+└── application/
+    └── services/
+        ConversationOrchestrator.js
+
+Al principio tendrá un método muy simple:
+
+async process({
+    channel,
+    externalId,
+    message
+}) {
+
+}
+
+Ese método será el corazón del framework.
+
+Más adelante hará algo así:
+
+Buscar usuario
+      │
+      ▼
+Crear usuario si no existe
+      │
+      ▼
+Buscar conversación activa
+      │
+      ▼
+Crear conversación si no existe
+      │
+      ▼
+Guardar mensaje del usuario
+      │
+      ▼
+Obtener prompt
+      │
+      ▼
+Enviar a la IA
+      │
+      ▼
+Guardar respuesta
+      │
+      ▼
+Responder al canal
+
+Observa que ningún canal (WhatsApp, Telegram, Web) hablará directamente con la IA. Todos pasarán por este orquestador.
+
+Mi sugerencia
+
+En este punto dejaría de pensar en términos de CRUD. Ya tenemos un ejemplo (User) para eso.
+
+A partir de ahora construiremos el framework alrededor de casos de uso reales del chatbot. Eso hará que la arquitectura sea mucho más limpia y flexible.
+
+El próximo objetivo será implementar este flujo:
+POST /chat
+
+↓
+
+ConversationOrchestrator.process()
+
+↓
+
+(temporalmente)
+return "Hola, soy el chatbot"
+
+Aunque todavía no use Ollama, ya tendremos el esqueleto completo del framework. Luego solo tendremos que reemplazar esa respuesta fija por una llamada al IAIProvider, sin cambiar el resto de la arquitectura.
+
+Creo que ese es el siguiente gran paso para que el proyecto empiece a sentirse como un verdadero framework de chatbot.
+
+----------------------------------------------------------------------------------------------
+
+entonces que va en IAIProvider.js, Message.js, Prompt.js
+
+Muy buena pregunta. Aquí es donde empezamos a separar el dominio de la infraestructura.
+
+Mi idea no es que estas clases sean simplemente un reflejo de Prisma. Quiero que representen el negocio del chatbot.
+
+## 1. IAIProvider.js
+
+Esta es la interfaz que deberán implementar todos los proveedores de IA.
+
+src/
+└── domain/
+    └── ai/
+        IAIProvider.js
+export default class IAIProvider {
+
+    async generateResponse(conversation, prompt) {
+        throw new Error("Method not implemented.");
+    }
+
+    async summarize(conversation, prompt) {
+        throw new Error("Method not implemented.");
+    }
+
+}
+¿Por qué solo dos métodos?
+
+Porque independientemente de si usas:
+
+Ollama
+OpenAI
+Claude
+Gemini
+Grok
+
+todos hacen dos cosas principales:
+
+responder
+resumir
+
+Después tendremos:
+
+OllamaProvider
+class OllamaProvider extends IAIProvider {
+
+    async generateResponse(conversation, prompt) {
+        ...
+    }
+
+    async summarize(conversation, prompt) {
+        ...
+    }
+
+}
+
+y otro:
+
+OpenAIProvider
+## 2. Message.js
+
+Esta no debería ser una copia de la tabla.
+
+Debe representar un mensaje del dominio.
+
+src/
+└── domain/
+    └── entities/
+        Message.js
+export default class Message {
+
+    constructor({
+        id,
+        conversationId,
+        role,
+        content,
+        tokens = 0,
+        promptTokens = 0,
+        completionTokens = 0,
+        createdAt = new Date()
+    }) {
+
+        this.id = id;
+        this.conversationId = conversationId;
+        this.role = role;
+        this.content = content;
+        this.tokens = tokens;
+        this.promptTokens = promptTokens;
+        this.completionTokens = completionTokens;
+        this.createdAt = createdAt;
+
+    }
+
+}
+Más adelante
+
+Podrá tener reglas propias.
+
+isFromUser() {
+    return this.role === "USER";
+}
+
+isAssistant() {
+    return this.role === "ASSISTANT";
+}
+
+o
+
+hasTokens() {
+    return this.tokens > 0;
+}
+## 3. Prompt.js
+
+Esta clase será muy importante.
+
+export default class Prompt {
+
+    constructor({
+        id,
+        name,
+        description,
+        content,
+        active = true
+    }) {
+
+        this.id = id;
+        this.name = name;
+        this.description = description;
+        this.content = content;
+        this.active = active;
+
+    }
+
+}
+
+Después podremos hacer cosas como:
+
+isActive() {
+    return this.active;
+}
+
+o
+
+variables() {
+
+    const regex = /\{\{(.*?)\}\}/g;
+
+    return [...this.content.matchAll(regex)]
+        .map(match => match[1]);
+
+}
+
+Si el prompt es:
+
+Hola {{name}}
+
+Hoy es {{date}}
+
+la función devolvería:
+
+[
+    "name",
+    "date"
+]
+
+Esto nos permitirá tener prompts dinámicos.
+
+Yo agregaría una clase más
+Conversation.js
+
+Porque será el centro del dominio.
+
+export default class Conversation {
+
+    constructor({
+        id,
+        userId,
+        status,
+        summary = "",
+        aiProvider,
+        model,
+        messages = []
+    }) {
+
+        this.id = id;
+        this.userId = userId;
+        this.status = status;
+        this.summary = summary;
+        this.aiProvider = aiProvider;
+        this.model = model;
+        this.messages = messages;
+
+    }
+
+    addMessage(message) {
+
+        this.messages.push(message);
+
+    }
+
+    totalTokens() {
+
+        return this.messages.reduce(
+
+            (total, message) => total + (message.tokens || 0),
+
+            0
+
+        );
+
+    }
+
+    needsSummary(limit) {
+
+        return this.totalTokens() >= limit;
+
+    }
+
+}
+
+Fíjate que esta clase ya empieza a tener comportamiento, no solo datos.
+
+¿Por qué hacer esto si Prisma ya tiene modelos?
+
+Porque Prisma representa la base de datos, mientras que estas clases representan el negocio.
+
+Por ejemplo:
+
+const conversation = await conversationRepository.findById(id);
+
+if (conversation.needsSummary(12000)) {
+
+    ...
+
+}
+
+Es mucho más expresivo que escribir:
+
+if (conversation.messages.reduce(...) > 12000)
+
+por todos lados.
+
+Mi recomendación
+
+Aquí sí empezaría a aplicar un poco de DDD (Domain-Driven Design), pero sin exagerar. No necesitamos entidades complejas con cientos de métodos.
+
+Mi regla sería:
+
+Entidades del dominio (Conversation, Message, Prompt) contienen datos y reglas de negocio relacionadas con ellas.
+Repositorios se encargan únicamente de persistir y recuperar esas entidades.
+Use Cases orquestan el flujo entre entidades, repositorios y proveedores externos.
+
+Ese equilibrio mantiene el código limpio y hace que el dominio del chatbot sea fácil de entender y de extender con nuevas capacidades.
+
+-------------------------------------------------------------------------------------------------
 
 # Compilar
-<!-- para que funcione la base hay que levantar docker -->
-docker compose up -d
-docker ps
-
 <!-- despues de cambiar prisma se hace  -->
 npx prisma format
 <!-- move_channel_to_conversation este nombre cambia segun la tarea  -->
@@ -5152,4 +5533,8 @@ npx prisma migrate dev --name move_channel_to_conversation
 <!-- si no funciona -->
 npx prisma generate
 
+<!-- para compilar con base y todo hay que levantar docker -->
+1ERO ABRIR APLICACION DOCKER DESKTOP
+docker compose up -d
+docker ps
 npm run dev
