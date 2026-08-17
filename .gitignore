@@ -7,7 +7,6 @@ tmp/download.csv
 package-lock.json
 
 tmp/
-ftago\.log
 
 jest\.log
 
@@ -18,3 +17,4 @@ install_nvm.sh
 coverage/
 .scannerwork
 test-report.xml
+chatbot-framework/logs/app.log
