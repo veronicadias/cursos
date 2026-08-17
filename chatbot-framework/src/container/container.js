@@ -27,6 +27,14 @@ import RepositoryFactory from "./../infraestructure/repositories/RepositoryFacto
 import CreateUserUseCase from "../application/usecases/users/CreateUserUseCase.js";
 import FindUserUseCase from "../application/usecases/users/FindUserUseCase.js";
 import LoggerFactory from "../infraestructure/logger/LoggerFactory.js";
+import ConversationService from "../application/services/ConversationService.js";
+import ConversationOrchestrator
+    from "../application/services/ConversationOrchestrator.js";
+import AIProviderFactory
+    from "../infraestructure/ai/AIProviderFactory.js";
+
+import configService
+    from "../config/ConfigService.js";
 
 class Container {
 
@@ -34,12 +42,29 @@ class Container {
         // Primero crear las dependencias compartidas
         this.logger = LoggerFactory.create();
         const userRepository = RepositoryFactory.user();
+        const conversationRepository = RepositoryFactory.conversation();
+        const messageRepository = RepositoryFactory.message();
+        const channelRepository = RepositoryFactory.channel();
+        this.aiProvider = AIProviderFactory.create(
+            configService.config.ai,
+            this.logger
+        );
 
         // Luego inyectarlas
         this.createUserUseCase = new CreateUserUseCase(userRepository,this.logger);
 
         this.findUserUseCase = new FindUserUseCase(userRepository,this.logger);
-
+        this.conversationService = new ConversationService({
+            conversationRepository,
+            messageRepository,
+            logger: this.logger,
+        });
+        this.conversationOrchestrator = new ConversationOrchestrator({
+            userRepository,
+            channelRepository,
+            conversationService: this.conversationService,
+            logger: this.logger
+        });
 
     }
 

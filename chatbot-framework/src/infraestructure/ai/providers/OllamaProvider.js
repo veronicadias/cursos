@@ -6,6 +6,7 @@ export default class OllamaProvider extends AIProvider {
     constructor(config) {
 
         super();
+        // console.log('config ollama provider-----------',config)
 
         this.model = new ChatOllama({
 
@@ -25,6 +26,16 @@ export default class OllamaProvider extends AIProvider {
 
         return response.content;
 
+    }
+
+    async generate(messages) {
+        const response = await this.model.invoke(messages);
+        console.log("LANGCHAIN RESPONSE:");
+        console.dir(response, { depth: null });
+        return {
+            content: response.content,
+            metadata: response.response_metadata
+        };
     }
 
 }

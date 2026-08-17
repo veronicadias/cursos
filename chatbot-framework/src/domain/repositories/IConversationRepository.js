@@ -28,9 +28,26 @@
 
 import IRepository from "./IRepository.js";
 
-export default class IConversationRepository extends IRepository {
+// export default class IConversationRepository extends IRepository {
 
-    async findActiveByUser(userId) {
+//     async findActiveByUser(userId) {
+//         throw new Error("Method not implemented.");
+//     }
+
+//     async updateSummary(id, summary) {
+//         throw new Error("Method not implemented.");
+//     }
+
+//     async close(id) {
+//         throw new Error("Method not implemented.");
+//     }
+
+// }
+
+export default class IConversationRepository extends IRepository {
+    // Incluimos channelId porque un usuario puede tener una conversación 
+    // activa diferente en WhatsApp, Telegram o Web.
+    async findActiveByUser(userId, channelId) {
         throw new Error("Method not implemented.");
     }
 
@@ -38,8 +55,11 @@ export default class IConversationRepository extends IRepository {
         throw new Error("Method not implemented.");
     }
 
-    async close(id) {
+    async updateLastMessageAt(id, date) {
         throw new Error("Method not implemented.");
     }
 
+    async close(id) {
+        throw new Error("Method not implemented.");
+    }
 }

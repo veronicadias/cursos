@@ -1363,6 +1363,15 @@ admin123
 FATAL: invalid value for parameter "TimeZone": "America/Buenos_Aires"
 Solución 1: Modificar el archivo dbeaver.ini (La más efectiva)Esta solución obliga a la aplicación completa a usar el formato compatible.Cierra DBeaver por completo.Ve a la carpeta donde está instalado DBeaver en tu computadora:Windows: C:\Program Files\DBeaver\ (o C:\Users\TU_USUARIO\AppData\Local\DBeaver\)Mac: Haz clic derecho sobre la app de DBeaver en Aplicaciones -> Mostrar contenido del paquete -> Contents/Eclipse/Linux: /usr/share/dbeaver/ o la ruta de tu paquete.Abre el archivo dbeaver.ini con un editor de texto (como Bloc de notas en modo administrador).Ve al final del archivo, busca la sección que empieza con -vmargs y añade la siguiente línea justo debajo:text-Duser.timezone=America/Argentina/Buenos_Aires
 Usa el código con precaución.Guarda el archivo y vuelve a abrir DBeaver
+C:\Program Files\DBeaver
+(Si tu Windows está en español estricto, puede figurar como C:\Archivos de programa\DBeaver).  
+Busca el archivo dbeaver.ini (a veces se ve solo como dbeaver y su tipo dice Opciones de configuración o tiene el ícono de una tuerca/bloc de notas).  
+⚠️ Muy Importante: Cómo pegarlo para que funcioneUna vez que lo encuentres y lo abras con el Bloc de notas, no lo pegues en cualquier lado. Los comandos en DBeaver tienen un orden estricto:
+Busca una línea que dice -vmargs. 
+Agrega la instrucción justo abajo de -vmargs (en un renglón limpio).  
+Para asegurar la compatibilidad con PostgreSQL, escribe esto exactamente:  
+-Duser.timezone=America/Argentina/Buenos_Aires
+(Nota: Ponemos /Argentina/ en el medio. PostgreSQL eliminó el alias corto en actualizaciones recientes, por lo que si le envías solo America/Buenos_Aires, te va a seguir tirando el error FATAL. Con el nombre largo se soluciona).  Guarda el archivo, cierra DBeaver por completo (asegúrate de que no quede minimizado en la barra de tareas) y vuélvelo a abrir. ¡Con esto tiene que conectar sí o sí!
 
 ## Paso siguiente: conectar Prisma
 
@@ -5525,6 +5534,1815 @@ Ese equilibrio mantiene el código limpio y hace que el dominio del chatbot sea 
 
 -------------------------------------------------------------------------------------------------
 
+Perfecto. Ahora empieza la parte que realmente convierte tu proyecto en un framework de chatbot.
+
+Hasta ahora construimos infraestructura. A partir de este punto construiremos el dominio.
+
+Y aquí quiero cambiar un poco el enfoque respecto a lo que hicimos con User.
+
+Lo que NO quiero
+
+No quiero que hagamos esto:
+
+Conversation
+
+↓
+
+CRUD
+
+↓
+
+Controller
+
+↓
+
+Repository
+
+Porque una conversación no es un CRUD.
+
+Lo que SÍ quiero
+
+Quiero que construyamos el flujo real del chatbot.
+
+Mensaje
+
+↓
+
+ConversationOrchestrator
+
+↓
+
+Conversation
+
+↓
+
+Message
+
+↓
+
+Prompt
+
+↓
+
+AI
+
+↓
+
+Respuesta
+El verdadero corazón del sistema
+
+Todo el framework girará alrededor de una sola clase.
+
+ConversationOrchestrator
+
+Será equivalente a lo que en otros frameworks llaman:
+
+Chat Engine
+Assistant Engine
+Conversation Engine
+¿Qué hace?
+
+Imagina que llega un WhatsApp.
+
+"Hola"
+
+El adaptador simplemente hace:
+
+await orchestrator.process({
+
+    channel:"WHATSAPP",
+
+    externalId:"5493511111111",
+
+    text:"Hola"
+
+});
+
+Y listo.
+
+El adaptador no sabe:
+
+Prisma
+Prompt
+Ollama
+GPT
+Logger
+
+Nada.
+
+Entonces...
+
+No empecemos implementando IA.
+
+Primero implementemos el esqueleto.
+
+application/services/
+ConversationOrchestrator.js
+export default class ConversationOrchestrator {
+
+    constructor({
+
+        userRepository,
+
+        conversationRepository,
+
+        messageRepository,
+
+        promptRepository,
+
+        aiProvider,
+
+        logger
+
+    }){
+
+        this.userRepository = userRepository;
+
+        this.conversationRepository = conversationRepository;
+
+        this.messageRepository = messageRepository;
+
+        this.promptRepository = promptRepository;
+
+        this.aiProvider = aiProvider;
+
+        this.logger = logger.child(this.constructor.name);
+
+    }
+
+}
+
+Observa una cosa.
+
+Ya no recibe:
+
+repository
+
+Recibe un objeto.
+
+Porque pronto tendrá muchas dependencias.
+
+Ahora solamente un método
+async process(request){
+
+}
+Y dentro iremos agregando pasos.
+
+Primero:
+
+async process(request){
+
+    this.logger.info({
+
+        event: EventNames.MESSAGE_RECEIVED,
+
+        metadata:{
+
+            channel:request.channel,
+
+            externalId:request.externalId
+
+        }
+
+    });
+
+}
+
+Nada más.
+
+Todavía no responde.
+
+Solo loguea.
+
+Luego
+
+Paso 2.
+
+Buscar usuario.
+
+const user = await this.userRepository.findByExternalId(
+
+    request.externalId
+
+);
+
+Todavía no crear conversación.
+
+Solo buscar.
+
+Luego
+
+Si no existe.
+
+const user = await this.userRepository.create(...);
+Luego
+
+Buscar conversación.
+
+Luego
+
+Guardar mensaje.
+
+Luego
+
+IA.
+
+Luego
+
+Guardar respuesta.
+
+¿Por qué hacerlo así?
+
+Porque construiremos el chatbot igual que se construye un compilador.
+
+Primero funciona:
+
+↓
+
+log
+
+↓
+
+buscar usuario
+
+↓
+
+crear usuario
+
+↓
+
+buscar conversación
+
+↓
+
+crear conversación
+
+↓
+
+guardar mensaje
+
+↓
+
+IA
+
+↓
+
+respuesta
+
+Cada paso se prueba por separado.
+
+Nunca agregaremos cinco cosas juntas.
+
+Antes de escribir ConversationOrchestrator...
+
+Hay una pieza que todavía nos falta y que considero importante: ConversationContext.
+
+No quiero pasar un objeto cualquiera como:
+
+{
+    channel,
+    externalId,
+    text
+}
+
+Prefiero definir una clase del dominio que represente una solicitud de conversación.
+
+Por ejemplo:
+
+export default class ConversationContext {
+
+    constructor({
+        channel,
+        externalUserId,
+        text,
+        attachments = [],
+        metadata = {},
+        timestamp = new Date()
+    }) {
+        this.channel = channel;
+        this.externalUserId = externalUserId;
+        this.text = text;
+        this.attachments = attachments;
+        this.metadata = metadata;
+        this.timestamp = timestamp;
+    }
+
+}
+
+Más adelante podremos añadir:
+
+ubicación,
+imágenes,
+audios,
+documentos,
+IDs del mensaje del proveedor,
+información del canal,
+
+sin modificar la firma de process() ni romper los adaptadores.
+
+Mi propuesta
+
+Antes de escribir una sola línea del ConversationOrchestrator, construiría estas tres piezas:
+
+ConversationContext
+ConversationOrchestrator
+ProcessIncomingMessageUseCase
+
+Con eso ya tendremos definido el flujo principal del framework. Después simplemente iremos reemplazando cada paso "vacío" (buscar usuario, crear conversación, llamar a la IA...) por implementaciones reales, una a una. Ese enfoque hace que el crecimiento del proyecto sea mucho más ordenado y fácil de probar.
+
+------------------------------------------------------------------------------------------------------------
+
+donde va ConversationContext
+
+Muy buena pregunta. Aquí hay una decisión de arquitectura importante.
+
+Mi recomendación: ConversationContext es un objeto del dominio
+
+No es una entidad que se guarde en la base de datos, sino un objeto que representa el contexto de una conversación entrante. En DDD esto suele llamarse un Value Object.
+
+Yo lo ubicaría así:
+
+src/
+├── domain/
+│   ├── entities/
+│   │   ├── User.js
+│   │   ├── Conversation.js
+│   │   ├── Message.js
+│   │   └── Prompt.js
+│   │
+│   ├── value-objects/
+│   │   └── ConversationContext.js   ← aquí
+│   │
+│   ├── repositories/
+│   └── ai/
+ConversationContext.js
+export default class ConversationContext {
+
+    constructor({
+        channel,
+        externalUserId,
+        text,
+        attachments = [],
+        metadata = {},
+        timestamp = new Date()
+    }) {
+
+        this.channel = channel;
+        this.externalUserId = externalUserId;
+        this.text = text;
+        this.attachments = attachments;
+        this.metadata = metadata;
+        this.timestamp = timestamp;
+
+    }
+
+}
+¿Por qué no en entities?
+
+Porque no tiene identidad.
+
+Una entidad tiene un id y vive en la base de datos.
+
+Ejemplos:
+
+User
+Conversation
+Message
+Prompt
+
+ConversationContext simplemente describe una petición.
+
+Es como un sobre que contiene información.
+
+¿Qué hará WhatsApp?
+const context = new ConversationContext({
+
+    channel: "WHATSAPP",
+
+    externalUserId: phone,
+
+    text: message,
+
+    metadata: {
+
+        providerMessageId: "...",
+
+        phone
+
+    }
+
+});
+
+await orchestrator.process(context);
+¿Qué hará Telegram?
+
+Exactamente lo mismo.
+
+const context = new ConversationContext({
+
+    channel: "TELEGRAM",
+
+    externalUserId: telegramId,
+
+    text: message
+
+});
+
+await orchestrator.process(context);
+¿Qué hará un endpoint REST?
+const context = new ConversationContext(req.body);
+
+await orchestrator.process(context);
+Una mejora que propondría
+
+Como ya usamos Zod, haría que ConversationContext siempre nazca válido.
+
+Por ejemplo:
+
+import { conversationContextSchema } from "../../shared/validation/conversation.schemas.js";
+
+export default class ConversationContext {
+
+    constructor(data) {
+
+        Object.assign(
+            this,
+            conversationContextSchema.parse(data)
+        );
+
+    }
+
+}
+
+Así cualquier adaptador (WhatsApp, Telegram, API REST, WebSocket) crea un ConversationContext que ya viene validado y el ConversationOrchestrator puede asumir que siempre recibe datos correctos.
+
+Un pequeño ajuste a la estructura
+
+Como el proyecto está creciendo, yo reorganizaría el dominio así:
+
+src/
+└── domain/
+    ├── entities/
+    ├── value-objects/
+    ├── repositories/
+    ├── ai/
+    ├── logger/
+    └── enums/
+
+En enums/ movería cosas como:
+
+ConversationStatus
+MessageRole
+ChannelType
+AIProviderType
+
+De esa forma evitamos usar strings ("USER", "ACTIVE", "WHATSAPP") repartidos por todo el proyecto y el dominio queda mucho más consistente. Es una estructura que escala muy bien cuando el framework empiece a soportar más canales y proveedores de IA.
+
+-------------------------------------------------------------------------------------------------------------
+
+no tengo nada de lo que me dices que ponga en enums
+Eso es porque todavía no los creamos 😄. Me adelanté un poco pensando en cómo va a quedar el framework terminado.
+
+No los necesitamos todavía.
+
+De hecho, si seguimos agregando infraestructura, vamos a terminar con muchas carpetas vacías. Yo prefiero construirlas cuando realmente las vayamos a usar.
+
+Entonces volvamos un paso atrás
+
+Hasta ahora tienes algo como:
+
+src/
+├── application/
+├── config/
+├── container/
+├── domain/
+│   ├── ai/
+│   ├── entities/
+│   ├── logger/
+│   ├── repositories/
+│   └── value-objects/
+├── infrastructure/
+├── interfaces/
+└── shared/
+
+Y eso está perfecto.
+
+No crees enums todavía.
+
+Lo mismo con ConversationContext
+
+Tampoco lo usaría todavía.
+
+Porque todavía no tenemos:
+
+WhatsApp
+Telegram
+Socket.io
+
+Todavía estamos construyendo el motor.
+
+Creo que es momento de cambiar la estrategia
+
+Hasta ahora fuimos creando la infraestructura primero.
+
+Ahora quiero empezar a construir el chatbot de adentro hacia afuera.
+
+Paso 1
+
+Crear ConversationRepository.
+
+No el controller.
+
+No las rutas.
+
+Solo el repository.
+
+¿Por qué?
+
+Porque todo el framework va a depender de él.
+
+Empecemos por Prisma
+
+Muéstrame cómo quedó finalmente tu modelo Conversation y Message en schema.prisma.
+
+Quiero ver algo parecido a esto:
+
+model Conversation {
+
+}
+
+y
+
+model Message {
+
+}
+Porque después vamos a implementar
+PrismaConversationRepository
+
+↓
+
+findActiveByUser()
+
+↓
+
+create()
+
+↓
+
+updateSummary()
+
+↓
+
+close()
+
+y
+
+PrismaMessageRepository
+
+↓
+
+create()
+
+↓
+
+findLastMessages()
+
+↓
+
+countTokens()
+Mi recomendación
+
+Creo que ya tenemos suficiente infraestructura.
+
+A partir de ahora quiero que cada cosa nueva que hagamos se use inmediatamente.
+
+Es decir:
+
+Conversation (modelo)
+
+↓
+
+Repository
+
+↓
+
+Service
+
+↓
+
+Lo usa ConversationOrchestrator
+
+Así no tendremos clases "preparadas para el futuro" que todavía no participan en el flujo del chatbot.
+
+Ese enfoque nos va a permitir tener un chatbot funcionando mucho antes, e iremos mejorándolo paso a paso.
+
+-----------------------------------------------------------------------------------------------------------------
+
+model Conversation {
+  id String @id @default(uuid())
+
+  userId String
+  user   User               @relation(fields: [userId], references: [id])
+  status ConversationStatus @default(ACTIVE)
+
+  channelId String
+  channel   Channel @relation(fields: [channelId], references: [id])
+
+  summary String?
+
+  messages Message[]
+
+  title String?
+  aiProvider String?
+  model String?
+  lastMessageAt DateTime?
+  updatedAt DateTime @updatedAt
+  createdAt           DateTime             @default(now())
+  conversationSummary ConversationSummary?
+}
+
+model Message {
+  id             String       @id @default(uuid())
+  conversationId String
+  role           MessageRole
+  content        String
+  tokens         Int?
+  conversation   Conversation @relation(fields: [conversationId], references: [id])
+  createdAt      DateTime     @default(now())
+  promptTokens Int?
+  completionTokens Int?
+}
+
+Los modelos están bien para continuar. Ya puedes implementar los repositorios de Conversation y Message.
+
+Hay un detalle importante: tienes summary dentro de Conversation y además una relación conversationSummary. Eso duplica el mismo concepto. Por ahora puedes mantener ambos, pero más adelante convendrá elegir uno. Como tu requisito original pedía un campo summary en la conversación, usaremos Conversation.summary.
+
+1. IConversationRepository.js
+
+Ubicación:
+
+src/domain/repositories/IConversationRepository.js
+import IRepository from "./IRepository.js";
+
+export default class IConversationRepository extends IRepository {
+    async findActiveByUser(userId, channelId) {
+        throw new Error("Method not implemented.");
+    }
+
+    async updateSummary(id, summary) {
+        throw new Error("Method not implemented.");
+    }
+
+    async updateLastMessageAt(id, date) {
+        throw new Error("Method not implemented.");
+    }
+
+    async close(id) {
+        throw new Error("Method not implemented.");
+    }
+}
+
+Incluimos channelId porque un usuario puede tener una conversación activa diferente en WhatsApp, Telegram o Web.
+
+2. IMessageRepository.js
+
+Ubicación:
+
+src/domain/repositories/IMessageRepository.js
+import IRepository from "./IRepository.js";
+
+export default class IMessageRepository extends IRepository {
+    async findByConversation(conversationId) {
+        throw new Error("Method not implemented.");
+    }
+
+    async findLastMessages(conversationId, limit = 20) {
+        throw new Error("Method not implemented.");
+    }
+
+    async sumTokens(conversationId) {
+        throw new Error("Method not implemented.");
+    }
+}
+3. PrismaConversationRepository.js
+
+Ubicación:
+
+src/infraestructure/repositories/prisma/PrismaConversationRepository.js
+
+Mantengo infraestructure porque así parece llamarse actualmente tu carpeta, aunque la escritura habitual es infrastructure.
+
+import BaseRepository from "../BaseRepository.js";
+
+export default class PrismaConversationRepository extends BaseRepository {
+    constructor(prisma) {
+        super(prisma, "conversation");
+    }
+
+    async findActiveByUser(userId, channelId) {
+        return this.model.findFirst({
+            where: {
+                userId,
+                channelId,
+                status: "ACTIVE",
+            },
+            orderBy: {
+                updatedAt: "desc",
+            },
+        });
+    }
+
+    async updateSummary(id, summary) {
+        return this.model.update({
+            where: { id },
+            data: {
+                summary,
+            },
+        });
+    }
+
+    async updateLastMessageAt(id, date = new Date()) {
+        return this.model.update({
+            where: { id },
+            data: {
+                lastMessageAt: date,
+            },
+        });
+    }
+
+    async close(id) {
+        return this.model.update({
+            where: { id },
+            data: {
+                status: "CLOSED",
+            },
+        });
+    }
+}
+
+Esto supone que tu BaseRepository resuelve el modelo así:
+
+export default class BaseRepository {
+    constructor(prisma, modelName) {
+        this.prisma = prisma;
+        this.model = prisma[modelName];
+    }
+
+    async findById(id) {
+        return this.model.findUnique({
+            where: { id },
+        });
+    }
+
+    async findAll() {
+        return this.model.findMany();
+    }
+
+    async create(data) {
+        return this.model.create({
+            data,
+        });
+    }
+
+    async update(id, data) {
+        return this.model.update({
+            where: { id },
+            data,
+        });
+    }
+
+    async delete(id) {
+        return this.model.delete({
+            where: { id },
+        });
+    }
+}
+4. PrismaMessageRepository.js
+
+Ubicación:
+
+src/infraestructure/repositories/prisma/PrismaMessageRepository.js
+import BaseRepository from "../BaseRepository.js";
+
+export default class PrismaMessageRepository extends BaseRepository {
+    constructor(prisma) {
+        super(prisma, "message");
+    }
+
+    async findByConversation(conversationId) {
+        return this.model.findMany({
+            where: {
+                conversationId,
+            },
+            orderBy: {
+                createdAt: "asc",
+            },
+        });
+    }
+
+    async findLastMessages(conversationId, limit = 20) {
+        const messages = await this.model.findMany({
+            where: {
+                conversationId,
+            },
+            orderBy: {
+                createdAt: "desc",
+            },
+            take: limit,
+        });
+
+        return messages.reverse();
+    }
+
+    async sumTokens(conversationId) {
+        const result = await this.model.aggregate({
+            where: {
+                conversationId,
+            },
+            _sum: {
+                tokens: true,
+            },
+        });
+
+        return result._sum.tokens ?? 0;
+    }
+}
+
+El reverse() es necesario porque Prisma trae primero los mensajes más recientes, pero para enviarlos a la IA normalmente necesitamos el orden cronológico.
+
+5. Actualizar RepositoryFactory.js
+import database from "../database/PrismaDatabase.js";
+
+import PrismaUserRepository from "./prisma/PrismaUserRepository.js";
+import PrismaConversationRepository from "./prisma/PrismaConversationRepository.js";
+import PrismaMessageRepository from "./prisma/PrismaMessageRepository.js";
+
+class RepositoryFactory {
+    constructor() {
+        this.prisma = database.getClient();
+    }
+
+    user() {
+        return new PrismaUserRepository(this.prisma);
+    }
+
+    conversation() {
+        return new PrismaConversationRepository(this.prisma);
+    }
+
+    message() {
+        return new PrismaMessageRepository(this.prisma);
+    }
+}
+
+export default new RepositoryFactory();
+
+Tu PrismaUserRepository actualmente no recibe prisma en el constructor, así que deberías unificarlo:
+
+import BaseRepository from "../BaseRepository.js";
+
+export default class PrismaUserRepository extends BaseRepository {
+    constructor(prisma) {
+        super(prisma, "user");
+    }
+
+    async findByExternalId(externalId, channelId) {
+        return this.model.findFirst({
+            where: {
+                externalId,
+                channelId,
+            },
+        });
+    }
+
+    async create(data) {
+        return this.model.create({
+            data: {
+                externalId: data.externalId,
+                name: data.name,
+                channel: {
+                    connect: {
+                        name: data.channel,
+                    },
+                },
+            },
+        });
+    }
+}
+
+Con esto ya quedan disponibles los tres repositorios que necesita el núcleo:
+
+UserRepository
+ConversationRepository
+MessageRepository
+
+El siguiente paso concreto es crear un servicio pequeño que haga solamente esto:
+
+buscar conversación activa
+→ crearla si no existe
+→ guardar un mensaje
+
+Todavía sin Ollama. Así probamos primero la persistencia completa de una conversación.
+
+----------------------------------------------------------------------------------------------------
+
+bueno, volvamos al chatbot, ya solucione el problema, como seguimos? dijiste algo de crear un servicio pequeño
+
+Sí. Ahora conviene crear un servicio pequeño que pruebe el núcleo sin meter Ollama todavía.
+
+La idea es implementar este flujo:
+
+buscar conversación activa
+→ crearla si no existe
+→ guardar el mensaje
+→ actualizar lastMessageAt
+1. Crear ConversationService.js
+
+Ubicación:
+
+src/application/services/ConversationService.js
+export default class ConversationService {
+    constructor({
+        conversationRepository,
+        messageRepository,
+        logger,
+    }) {
+        this.conversationRepository = conversationRepository;
+        this.messageRepository = messageRepository;
+        this.logger = logger.child(this.constructor.name);
+    }
+
+    async registerIncomingMessage({
+        userId,
+        channelId,
+        text,
+        role = "USER",
+        tokens = null,
+    }) {
+        let conversation =
+            await this.conversationRepository.findActiveByUser(
+                userId,
+                channelId
+            );
+
+        if (!conversation) {
+            conversation = await this.conversationRepository.create({
+                userId,
+                channelId,
+                status: "ACTIVE",
+                lastMessageAt: new Date(),
+            });
+
+            this.logger.info({
+                event: "CONVERSATION_CREATED",
+                metadata: {
+                    conversationId: conversation.id,
+                    userId,
+                    channelId,
+                },
+            });
+        }
+
+        const message = await this.messageRepository.create({
+            conversationId: conversation.id,
+            role,
+            content: text,
+            tokens,
+        });
+
+        await this.conversationRepository.updateLastMessageAt(
+            conversation.id
+        );
+
+        this.logger.info({
+            event: "MESSAGE_RECEIVED",
+            metadata: {
+                messageId: message.id,
+                conversationId: conversation.id,
+                userId,
+                channelId,
+            },
+        });
+
+        return {
+            conversation,
+            message,
+        };
+    }
+}
+2. Registrar los repositorios en el Container
+
+Tu container.js debería incorporar Conversation y Message:
+
+import RepositoryFactory from "../infraestructure/repositories/RepositoryFactory.js";
+import LoggerFactory from "../infraestructure/logger/LoggerFactory.js";
+
+import CreateUserUseCase from "../application/usecases/users/CreateUserUseCase.js";
+import FindUserUseCase from "../application/usecases/users/FindUserUseCase.js";
+import ConversationService from "../application/services/ConversationService.js";
+
+class Container {
+    constructor() {
+        this.logger = LoggerFactory.create();
+
+        const userRepository = RepositoryFactory.user();
+        const conversationRepository = RepositoryFactory.conversation();
+        const messageRepository = RepositoryFactory.message();
+
+        this.createUserUseCase = new CreateUserUseCase(
+            userRepository,
+            this.logger
+        );
+
+        this.findUserUseCase = new FindUserUseCase(
+            userRepository,
+            this.logger
+        );
+
+        this.conversationService = new ConversationService({
+            conversationRepository,
+            messageRepository,
+            logger: this.logger,
+        });
+    }
+}
+
+export default new Container();
+3. Crear un endpoint temporal para probarlo
+
+Crea:
+
+src/interfaces/http/controllers/ChatController.js
+import ApiResponse from "../../../shared/response/ApiResponse.js";
+
+export default class ChatController {
+    constructor(conversationService) {
+        this.conversationService = conversationService;
+    }
+
+    async receive(req, res) {
+        const result =
+            await this.conversationService.registerIncomingMessage({
+                userId: req.body.userId,
+                channelId: req.body.channelId,
+                text: req.body.text,
+            });
+
+        res.status(201).json(
+            ApiResponse.success(
+                result,
+                "Mensaje registrado correctamente"
+            )
+        );
+    }
+}
+4. Crear chat.routes.js
+
+Ubicación:
+
+src/interfaces/http/routes/chat.routes.js
+import { Router } from "express";
+
+import container from "../../../container/container.js";
+import ChatController from "../controllers/ChatController.js";
+import asyncHandler from "../../../shared/middleware/asyncHandler.js";
+
+const router = Router();
+
+const controller = new ChatController(
+    container.conversationService
+);
+
+router.post(
+    "/",
+    asyncHandler(controller.receive.bind(controller))
+);
+
+export default router;
+5. Registrar la ruta en app.js
+import chatRoutes from "./interfaces/http/routes/chat.routes.js";
+
+app.use("/chat", chatRoutes);
+6. Probar
+
+Haz un POST a:
+
+POST http://localhost:3000/chat
+
+Body:
+
+{
+  "userId": "UUID_DE_UN_USUARIO_EXISTENTE",
+  "channelId": "UUID_DE_UN_CANAL_EXISTENTE",
+  "text": "Hola"
+}
+
+La primera vez debería:
+
+crear una conversación activa,
+guardar el mensaje,
+devolver ambos registros.
+
+La segunda vez, usando el mismo userId y channelId, debería reutilizar la conversación activa y crear solo otro mensaje.
+
+El siguiente paso será mejorar este endpoint para que reciba externalUserId y channel, busque o cree al usuario automáticamente y recién después llame a este servicio. Ahí empezará a tomar forma el verdadero ConversationOrchestrator.
+
+-----------------------------------------------------------------------------------------------------
+
+se creo ok
+
+Perfecto. Entonces ya validaste este flujo:
+
+POST /chat
+   ↓
+ChatController
+   ↓
+ConversationService
+   ↓
+buscar conversación activa
+   ↓
+crear conversación si no existe
+   ↓
+guardar Message
+   ↓
+actualizar lastMessageAt
+   ↓
+PostgreSQL
+
+El siguiente paso es hacer que /chat deje de recibir directamente userId y channelId, porque WhatsApp o Telegram no van a conocer esos UUID internos.
+
+Quiero que empiece a recibir algo más parecido a esto:
+
+{
+  "externalUserId": "5493511111111",
+  "channel": "WHATSAPP",
+  "name": "Veronica",
+  "text": "Hola"
+}
+
+Y que el sistema resuelva automáticamente:
+
+externalUserId + channel
+        ↓
+buscar usuario
+        ↓
+si no existe → crearlo
+        ↓
+obtener userId + channelId
+        ↓
+ConversationService
+
+Ahí sí conviene crear el ConversationOrchestrator.
+
+Podemos hacer ahora una primera versión que solamente coordine User + Conversation + Message, todavía sin Ollama. Después de comprobar que funciona, le agregamos el proveedor de IA.
+
+--------------------------------------------------------------------------------------------------------------
+
+Entonces avancemos con la primera versión del ConversationOrchestrator. Por ahora su responsabilidad será coordinar User → Conversation → Message; todavía no metemos Ollama.
+
+1. Crear ConversationOrchestrator.js
+
+Ubicación:
+
+src/
+└── application/
+    └── services/
+        ├── ConversationService.js
+        └── ConversationOrchestrator.js
+export default class ConversationOrchestrator {
+    constructor({
+        userRepository,
+        conversationService,
+        logger
+    }) {
+        this.userRepository = userRepository;
+        this.conversationService = conversationService;
+        this.logger = logger.child(this.constructor.name);
+    }
+
+
+    async process({
+        externalUserId,
+        channel,
+        name,
+        text
+    }) {
+        // Lo implementamos por pasos
+    }
+}
+2. Primer problema: necesitamos resolver el Channel
+
+Nuestro User actualmente tiene:
+
+channelId String
+channel   Channel @relation(fields: [channelId], references: [id])
+
+Por lo tanto, para recibir:
+
+{
+    "channel": "WHATSAPP"
+}
+
+necesitamos encontrar primero el registro correspondiente de Channel.
+
+Aquí sí conviene agregar ChannelRepository.
+
+Crea:
+
+src/domain/repositories/IChannelRepository.js
+import IRepository from "./IRepository.js";
+
+
+export default class IChannelRepository extends IRepository {
+    async findByName(name) {
+        throw new Error("Method not implemented.");
+    }
+}
+
+Y:
+
+src/infraestructure/repositories/prisma/PrismaChannelRepository.js
+import BaseRepository from "../BaseRepository.js";
+
+
+export default class PrismaChannelRepository extends BaseRepository {
+    constructor(prisma) {
+        super(prisma, "channel");
+    }
+
+
+    async findByName(name) {
+        return this.model.findUnique({
+            where: {
+                name
+            }
+        });
+    }
+}
+
+En RepositoryFactory.js:
+
+import PrismaChannelRepository from "./prisma/PrismaChannelRepository.js";
+
+y agrega:
+
+channel() {
+    return new PrismaChannelRepository(this.prisma);
+}
+3. Ahora sí completamos el Orchestrator
+export default class ConversationOrchestrator {
+    constructor({
+        userRepository,
+        channelRepository,
+        conversationService,
+        logger
+    }) {
+        this.userRepository = userRepository;
+        this.channelRepository = channelRepository;
+        this.conversationService = conversationService;
+        this.logger = logger.child(this.constructor.name);
+    }
+
+
+    async process({
+        externalUserId,
+        channel,
+        name,
+        text
+    }) {
+        const channelEntity =
+            await this.channelRepository.findByName(channel);
+
+
+        if (!channelEntity) {
+            throw new Error(`Canal ${channel} no encontrado`);
+        }
+
+
+        let user =
+            await this.userRepository.findByExternalId(
+                externalUserId,
+                channelEntity.id
+            );
+
+
+        if (!user) {
+            user = await this.userRepository.create({
+                externalId: externalUserId,
+                name,
+                channel: {
+                    connect: {
+                        id: channelEntity.id
+                    }
+                }
+            });
+
+
+            this.logger.info({
+                event: "USER_CREATED",
+                metadata: {
+                    userId: user.id,
+                    channel: channelEntity.name
+                }
+            });
+        }
+
+
+        return this.conversationService.registerIncomingMessage({
+            userId: user.id,
+            channelId: channelEntity.id,
+            text
+        });
+    }
+}
+4. Ojo con tu PrismaUserRepository
+
+Antes habíamos personalizado create() para recibir channel como nombre. Ahora eso nos estorba un poco.
+
+Para mantener el repositorio genérico, yo dejaría:
+
+async create(data) {
+    return this.model.create({
+        data
+    });
+}
+
+O directamente eliminaría ese método si ya lo hereda de BaseRepository.
+
+Así el Orchestrator puede mandar:
+
+{
+    externalId: externalUserId,
+    name,
+    channel: {
+        connect: {
+            id: channelEntity.id
+        }
+    }
+}
+5. Registrar todo en container.js
+
+Agrega:
+
+import ConversationOrchestrator
+    from "../application/services/ConversationOrchestrator.js";
+
+Y después de crear los repositories:
+
+const userRepository = RepositoryFactory.user();
+const conversationRepository = RepositoryFactory.conversation();
+const messageRepository = RepositoryFactory.message();
+const channelRepository = RepositoryFactory.channel();
+
+Tu ConversationService sigue igual:
+
+this.conversationService = new ConversationService({
+    conversationRepository,
+    messageRepository,
+    logger: this.logger
+});
+
+Y debajo:
+
+this.conversationOrchestrator = new ConversationOrchestrator({
+    userRepository,
+    channelRepository,
+    conversationService: this.conversationService,
+    logger: this.logger
+});
+6. Cambiar ChatController
+
+Ya no debe llamar directamente a ConversationService.
+
+export default class ChatController {
+    constructor(conversationOrchestrator) {
+        this.conversationOrchestrator = conversationOrchestrator;
+    }
+
+
+    async receive(req, res) {
+        const result =
+            await this.conversationOrchestrator.process(req.body);
+
+
+        res.status(201).json(result);
+    }
+}
+
+Y al crearlo:
+
+const controller = new ChatController(
+    container.conversationOrchestrator
+);
+
+Ahora tu endpoint cambia conceptualmente de:
+
+{
+    "userId": "uuid...",
+    "channelId": "uuid...",
+    "text": "Hola"
+}
+
+a algo mucho más apropiado para un chatbot:
+
+{
+    "externalUserId": "123456",
+    "channel": "WHATSAPP",
+    "name": "Veronica",
+    "text": "Hola"
+}
+
+El sistema resuelve internamente los UUID.
+
+Primero probaría exactamente esto. Cuando funcione, el siguiente paso será muy bueno: agregar IAIProvider → OllamaProvider y hacer que ese "Hola" finalmente genere una respuesta real con qwen3:4b.
+
+---------------------------------------------------------------------------------------------------------------------------------------------------------
+
+listo, solucionado
+
+Perfecto. Entonces ya tenemos funcionando el flujo:
+
+POST /chat
+   ↓
+ChatController
+   ↓
+ConversationOrchestrator
+   ↓
+buscar Channel
+   ↓
+buscar/crear User
+   ↓
+ConversationService
+   ↓
+buscar/crear Conversation
+   ↓
+guardar Message
+
+Y si mandas varios mensajes con el mismo externalUserId + channel, debería reutilizar la conversación ACTIVE.
+
+El siguiente paso que haría es conectar la IA, pero de forma desacoplada como venimos diseñando:
+
+ConversationOrchestrator
+        ↓
+    AIService
+        ↓
+   IAIProvider
+        ↓
+  OllamaProvider
+        ↓
+     Ollama
+        ↓
+    qwen3:4b
+
+Ya tenemos IAIProvider.js, así que ahora podemos implementar OllamaProvider, crear un AIProviderFactory y registrarlo en el Container. Después modificaremos el flujo para que:
+
+"Hola"
+  ↓
+guardar USER Message
+  ↓
+recuperar historial
+  ↓
+Qwen3:4b
+  ↓
+guardar ASSISTANT Message
+  ↓
+devolver respuesta
+
+Yo empezaría únicamente por OllamaProvider y lo probaría aislado antes de conectarlo al ConversationOrchestrator. Así, si Ollama falla, sabemos que el problema está en la integración con IA y no en Conversation/Message.
+
+---------------------------------------------------------------------------------------------------------------------------------
+
+CONTENT:
+Hola, soy Qwen, un modelo de lenguaje de gran tamaño desarrollado por el laboratorio Tongyi. ¿En qué puedo ayudarte?
+
+Perfecto. Eso confirma que ya funciona todo el camino:
+
+Node
+→ Container
+→ AIProviderFactory
+→ OllamaProvider
+→ LangChain
+→ Ollama
+→ qwen3:4b
+→ respuesta
+
+Ahora sí podemos conectar la IA al flujo real del chatbot.
+
+El siguiente cambio sería que ConversationService además de guardar el mensaje del usuario, recupere el historial reciente. Después ConversationOrchestrator llama a aiProvider.generate(...), guarda la respuesta como ASSISTANT y la devuelve.
+
+Yo lo haría en este orden:
+
+ConversationService.getHistory(conversationId)
+
+ConversationOrchestrator arma los mensajes:
+
+[
+  { role: "system", content: "Eres un asistente de consultas." },
+  ...history.map(...)
+]
+aiProvider.generate(messages)
+
+guardar:
+
+{
+  role: "ASSISTANT",
+  content: response.content
+}
+devolver response.content desde POST /chat
+
+Y recién después reemplazamos el "Eres un asistente de consultas." hardcodeado por el PromptRepository, que era uno de tus requisitos originales.
+
+Si quieres, seguimos ahora con ese paso y te doy el código exacto para integrar OllamaProvider dentro de ConversationOrchestrator.
+
+---------------------------------------------------------------------------------------------------------
+
+ok
+
+Ahora conectemos Ollama al flujo real, pero manteniendo bien separadas las responsabilidades.
+
+Queremos llegar a:
+
+POST /chat
+   ↓
+ConversationOrchestrator
+   ↓
+buscar/crear User
+   ↓
+ConversationService
+   ├── buscar/crear Conversation
+   └── guardar USER Message
+   ↓
+recuperar historial
+   ↓
+OllamaProvider.generate()
+   ↓
+guardar ASSISTANT Message
+   ↓
+devolver respuesta
+1. Ampliar ConversationService
+
+Ya tienes registerIncomingMessage(). Agreguemos dos métodos:
+
+async getHistory(conversationId, limit = 20) {
+    return this.messageRepository.findLastMessages(
+        conversationId,
+        limit
+    );
+}
+
+
+async registerAssistantMessage({
+    conversationId,
+    text,
+    tokens = null,
+    promptTokens = null,
+    completionTokens = null
+}) {
+    const message = await this.messageRepository.create({
+        conversationId,
+        role: "ASSISTANT",
+        content: text,
+        tokens,
+        promptTokens,
+        completionTokens
+    });
+
+
+    await this.conversationRepository.updateLastMessageAt(
+        conversationId
+    );
+
+
+    return message;
+}
+
+Entonces ConversationService queda responsable de operaciones relacionadas con Conversation/Message.
+
+2. Inyectar aiProvider al Orchestrator
+
+En container.js ya deberías tener:
+
+this.aiProvider = AIProviderFactory.create(
+    configService.config.ai,
+    this.logger
+);
+
+Ahora cambia:
+
+this.conversationOrchestrator = new ConversationOrchestrator({
+    userRepository,
+    channelRepository,
+    conversationService: this.conversationService,
+    logger: this.logger
+});
+
+por:
+
+this.conversationOrchestrator = new ConversationOrchestrator({
+    userRepository,
+    channelRepository,
+    conversationService: this.conversationService,
+    aiProvider: this.aiProvider,
+    logger: this.logger
+});
+3. Recibirlo en ConversationOrchestrator
+constructor({
+    userRepository,
+    channelRepository,
+    conversationService,
+    aiProvider,
+    logger
+}) {
+    this.userRepository = userRepository;
+    this.channelRepository = channelRepository;
+    this.conversationService = conversationService;
+    this.aiProvider = aiProvider;
+
+
+    this.logger = logger.child(this.constructor.name);
+}
+
+Recuerda lo que nos pasó antes: no alcanza con recibir:
+
+aiProvider
+
+hay que asignarlo:
+
+this.aiProvider = aiProvider;
+4. Modificar process()
+
+La primera parte que ya funciona la dejamos prácticamente igual:
+
+async process({
+    externalUserId,
+    channel,
+    name,
+    text
+}) {
+    const channelEntity =
+        await this.channelRepository.findByName(channel);
+
+
+    if (!channelEntity) {
+        throw new Error(`Canal ${channel} no encontrado`);
+    }
+
+
+    let user =
+        await this.userRepository.findByExternalId(
+            externalUserId,
+            channelEntity.id
+        );
+
+
+    if (!user) {
+        user = await this.userRepository.create({
+            externalId: externalUserId,
+            name,
+            channel: {
+                connect: {
+                    id: channelEntity.id
+                }
+            }
+        });
+    }
+
+
+    // 1. Guardamos el mensaje USER
+    const { conversation } =
+        await this.conversationService.registerIncomingMessage({
+            userId: user.id,
+            channelId: channelEntity.id,
+            text
+        });
+
+
+    // 2. Recuperamos el historial
+    const history =
+        await this.conversationService.getHistory(
+            conversation.id
+        );
+
+
+    // 3. Lo convertimos al formato esperado por la IA
+    const messages = [
+        {
+            role: "system",
+            content: "Eres un asistente útil. Responde siempre en español."
+        },
+        ...history.map(message => ({
+            role: message.role.toLowerCase(),
+            content: message.content
+        }))
+    ];
+
+
+    // 4. Llamamos a Ollama
+    const aiResponse =
+        await this.aiProvider.generate(messages);
+
+
+    // 5. Guardamos la respuesta
+    const assistantMessage =
+        await this.conversationService.registerAssistantMessage({
+            conversationId: conversation.id,
+            text: aiResponse.content
+        });
+
+
+    // 6. Respondemos
+    return {
+        conversationId: conversation.id,
+        message: assistantMessage
+    };
+}
+
+Hay un detalle interesante acá:
+
+Prisma guarda:
+
+USER
+ASSISTANT
+SYSTEM
+
+pero LangChain recibe:
+
+user
+assistant
+system
+
+Por eso hacemos:
+
+role: message.role.toLowerCase()
+5. Probar /chat
+
+Ahora manda exactamente el mismo request que ya te funcionaba:
+
+{
+    "externalUserId": "usuario-test-001",
+    "channel": "WEB",
+    "name": "Usuario Test",
+    "text": "Hola, mi nombre es Juan"
+}
+
+Deberías recibir algo parecido a:
+
+{
+    "conversationId": "uuid...",
+    "message": {
+        "id": "uuid...",
+        "conversationId": "uuid...",
+        "role": "ASSISTANT",
+        "content": "¡Hola Juan! ¿En qué puedo ayudarte?",
+        "tokens": null,
+        "promptTokens": null,
+        "completionTokens": null
+    }
+}
+
+Ahora haz una segunda petición:
+
+{
+    "externalUserId": "usuario-test-001",
+    "channel": "WEB",
+    "name": "Usuario Test",
+    "text": "¿Cómo me llamo?"
+}
+
+Aquí está la prueba importante.
+
+Como ConversationService recupera los últimos mensajes de la misma conversación, Qwen debería poder responder:
+
+Te llamas Juan.
+
+Si eso ocurre, acabamos de implementar la memoria de corto plazo del chatbot.
+
+Después de comprobar esto
+
+No agregaría todavía más funcionalidades. El siguiente paso sería sacar esto:
+
+content: "Eres un asistente útil. Responde siempre en español."
+
+del código.
+
+Ahí implementaremos PromptRepository, para que personalidad, instrucciones y prompts del chatbot estén almacenados/configurados externamente y el ConversationOrchestrator no tenga prompts hardcodeados.
+
+-----------------------------------------------------------------------------------------------------------------
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 # Compilar
 <!-- despues de cambiar prisma se hace  -->
 npx prisma format
@@ -5533,8 +7351,16 @@ npx prisma migrate dev --name move_channel_to_conversation
 <!-- si no funciona -->
 npx prisma generate
 
+<!-- si falla wsl -->
+abrir administrador de tareas
+ir a servicios
+ir a servicios dentro
+buscar wsl service
+iniciar
 <!-- para compilar con base y todo hay que levantar docker -->
 1ERO ABRIR APLICACION DOCKER DESKTOP
 docker compose up -d
 docker ps
+la 1er vez
+npx prisma generate
 npm run dev

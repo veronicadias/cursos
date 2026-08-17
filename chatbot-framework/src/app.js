@@ -6,6 +6,7 @@ import userRoutes from "./interfaces/http/routes/user.routes.js";
 import loggerMiddleware from "./shared/logger/loggerMiddleware.js";
 import requestLogger from "./shared/middleware/requestLogger.js";
 import container from "./container/container.js";
+import chatRoutes from "./interfaces/http/routes/chat.routes.js";
 
 // dotenv.config();
 
@@ -35,7 +36,9 @@ app.listen(server.port, () => {
     console.log(`Servidor iniciado en puerto ${server.port}`);
 
 });
+
 app.use("/users", userRoutes);
+app.use("/chat", chatRoutes);
 // app.listen(PORT, () => {
 //     console.log(`Servidor iniciado en puerto ${PORT}`);
 // });

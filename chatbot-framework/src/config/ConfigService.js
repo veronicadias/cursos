@@ -18,6 +18,10 @@ class ConfigService {
         ollama: {
           baseUrl: process.env.OLLAMA_URL || "http://localhost:11434",
           model: process.env.OLLAMA_MODEL || "qwen3:4b",
+          temperature:
+            Number(
+                process.env.OLLAMA_TEMPERATURE ?? 0.7
+            )
         },
 
         summaryLimit: Number(process.env.SUMMARY_LIMIT) || 5000,

@@ -20,8 +20,18 @@
 
 import IRepository from "./IRepository.js";
 
-export default class IMessageRepository extends IRepository {
+// export default class IMessageRepository extends IRepository {
 
+//     async findByConversation(conversationId) {
+//         throw new Error("Method not implemented.");
+//     }
+
+//     async findLastMessages(conversationId, limit = 20) {
+//         throw new Error("Method not implemented.");
+//     }
+
+// }
+export default class IMessageRepository extends IRepository {
     async findByConversation(conversationId) {
         throw new Error("Method not implemented.");
     }
@@ -30,4 +40,7 @@ export default class IMessageRepository extends IRepository {
         throw new Error("Method not implemented.");
     }
 
+    async sumTokens(conversationId) {
+        throw new Error("Method not implemented.");
+    }
 }

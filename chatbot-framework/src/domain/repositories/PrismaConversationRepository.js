@@ -1,14 +1,4 @@
-import BaseRepository from "../../BaseRepository.js";
-
-// class PrismaConversationRepository extends BaseRepository {
-
-//     constructor(prisma) {
-//         super(prisma, "conversation");
-//     }
-
-// }
-
-// export default new PrismaConversationRepository();
+import BaseRepository from "../BaseRepository.js";
 
 export default class PrismaConversationRepository extends BaseRepository {
     constructor(prisma) {
@@ -31,7 +21,9 @@ export default class PrismaConversationRepository extends BaseRepository {
     async updateSummary(id, summary) {
         return this.model.update({
             where: { id },
-            data: { summary },
+            data: {
+                summary,
+            },
         });
     }
 

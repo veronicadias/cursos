@@ -8,4 +8,8 @@ export default class IAIProvider {
         throw new Error("Method not implemented.");
     }
 
+    async generate(messages) {
+        throw new Error("Method not implemented.");
+    }
+
 }

@@ -42,3 +42,27 @@ article {
 p {
     text-align: justify;
 }
+
+aside {
+    background-color: #f7f7f7;
+    float: left;
+    height: auto;
+    margin-top: 0.5em;
+    padding: 1em;
+    width: 35.5%;
+}
+
+footer {
+    background-color: steelblue;
+    bottom: 0;
+    color: #fff;
+    float: left;
+    padding-top: 1em 0 1em 0;
+    width: 100%;
+}
+
+footer p {
+    color: #fff;
+    font-size: 0.9em;
+    text-align: center;
+}

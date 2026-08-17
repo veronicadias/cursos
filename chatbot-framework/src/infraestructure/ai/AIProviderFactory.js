@@ -6,18 +6,26 @@ import GrokProvider from "./providers/GrokProvider.js";
 
 class AIProviderFactory {
 
-    create() {
+    create(config, logger) {
 
-        switch (config.ai.provider) {
+        // console.log(config.config)
+        switch (config.provider) {
 
             case "OLLAMA":
-                return new OllamaProvider(config.ai);
+                // console.log('-----------------',config)
+                return new OllamaProvider(
+                    // config.ai
+                    {
+                    ...config,
+                    logger
+                }
+                );
 
             case "OPENAI":
-                return new OpenAIProvider(config.ai);
+                return new OpenAIProvider(config);
 
             case "GROK":
-                return new GrokProvider(config.ai);
+                return new GrokProvider(config);
 
             default:
                 throw new Error("Proveedor IA no soportado.");
