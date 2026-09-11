@@ -7,6 +7,11 @@ export default class OllamaProvider extends AIProvider {
 
         super();
         // console.log('config ollama provider-----------',config)
+        // console.log({
+        //     model,
+        //     baseUrl,
+        //     temperature
+        // });
 
         this.model = new ChatOllama({
 

@@ -7329,11 +7329,329 @@ Ahí implementaremos PromptRepository, para que personalidad, instrucciones y pr
 
 -----------------------------------------------------------------------------------------------------------------
 
+ya está funcionando el flujo completo con Ollama: se guarda el mensaje del usuario, recuperas historial, Qwen responde y estás recibiendo response.content.
 
+Ese texto:
 
+¡Hola! Parece que te gusta repetir las frases 😄 ¿En qué puedo ayudarte hoy?
 
+es justamente la respuesta generada por qwen3:4b.
 
+Ahora haría una prueba importante de memoria corta. Envía primero:
 
+{
+  "externalUserId": "usuario-test-001",
+  "channel": "WEB",
+  "name": "Usuario Test",
+  "text": "Mi color favorito es el verde"
+}
+
+y luego:
+
+{
+  "externalUserId": "usuario-test-001",
+  "channel": "WEB",
+  "name": "Usuario Test",
+  "text": "¿Cuál es mi color favorito?"
+}
+
+Si responde “verde”, confirmamos que el historial de la conversación se está enviando correctamente al modelo.
+
+El siguiente paso ya sería sacar este prompt hardcodeado:
+
+{
+  role: "system",
+  content: "Eres un asistente útil. Responde siempre en español."
+}
+
+y leerlo desde PostgreSQL mediante PromptRepository, que era uno de los requisitos centrales del chatbot.
+
+------------------------------------------------------------------------------------------------
+
+Sigamos con PromptRepository + PromptService, para sacar el prompt hardcodeado del ConversationOrchestrator.
+
+1. Repositorio de prompts
+
+Crea:
+
+src/domain/repositories/IPromptRepository.js
+import IRepository from "./IRepository.js";
+
+export default class IPromptRepository extends IRepository {
+    async findActiveByName(name) {
+        throw new Error("Method not implemented.");
+    }
+}
+
+Luego:
+
+src/infraestructure/repositories/prisma/PrismaPromptRepository.js
+import BaseRepository from "../BaseRepository.js";
+
+export default class PrismaPromptRepository extends BaseRepository {
+    constructor(prisma) {
+        super(prisma, "prompt");
+    }
+
+    async findActiveByName(name) {
+        return this.model.findFirst({
+            where: {
+                name,
+                active: true
+            }
+        });
+    }
+}
+
+En RepositoryFactory.js agrega:
+
+import PrismaPromptRepository from "./prisma/PrismaPromptRepository.js";
+
+y:
+
+prompt() {
+    return new PrismaPromptRepository(this.prisma);
+}
+2. Crear PromptService
+
+Ubicación:
+
+src/application/services/PromptService.js
+export default class PromptService {
+    constructor({
+        promptRepository,
+        logger
+    }) {
+        this.promptRepository = promptRepository;
+        this.logger = logger.child(this.constructor.name);
+    }
+
+    async getSystemPrompt() {
+        const prompt =
+            await this.promptRepository.findActiveByName("SYSTEM");
+
+        if (!prompt) {
+            throw new Error("No existe un prompt SYSTEM activo");
+        }
+
+        return prompt.content;
+    }
+}
+3. Registrar PromptService en el container
+
+En container.js:
+
+import PromptService from "../application/services/PromptService.js";
+
+Luego:
+
+const promptRepository = RepositoryFactory.prompt();
+
+this.promptService = new PromptService({
+    promptRepository,
+    logger: this.logger
+});
+
+Y al crear el orchestrator:
+
+this.conversationOrchestrator =
+    new ConversationOrchestrator({
+        userRepository,
+        channelRepository,
+        conversationService: this.conversationService,
+        promptService: this.promptService,
+        aiProvider: this.aiProvider,
+        logger: this.logger
+    });
+4. Modificar ConversationOrchestrator
+
+En el constructor:
+
+constructor({
+    userRepository,
+    channelRepository,
+    conversationService,
+    promptService,
+    aiProvider,
+    logger
+}) {
+    this.userRepository = userRepository;
+    this.channelRepository = channelRepository;
+    this.conversationService = conversationService;
+    this.promptService = promptService;
+    this.aiProvider = aiProvider;
+
+    this.logger = logger.child(this.constructor.name);
+}
+
+Y reemplaza esto:
+
+{
+    role: "system",
+    content: "Eres un asistente útil. Responde siempre en español."
+}
+
+por:
+
+const systemPrompt =
+    await this.promptService.getSystemPrompt();
+
+const messages = [
+    {
+        role: "system",
+        content: systemPrompt
+    },
+    ...history.map(message => ({
+        role: message.role.toLowerCase(),
+        content: message.content
+    }))
+];
+5. Crear el prompt en PostgreSQL
+
+Puedes hacerlo desde Prisma Studio o SQL.
+
+Por ejemplo:
+
+INSERT INTO "Prompt" (
+    "id",
+    "name",
+    "type",
+    "content",
+    "active",
+    "createdAt",
+    "updatedAt"
+)
+VALUES (
+    gen_random_uuid(),
+    'SYSTEM',
+    'SYSTEM',
+    'Eres un asistente de consultas. Responde siempre en español de forma clara y breve.',
+    true,
+    NOW(),
+    NOW()
+);
+
+Si tu modelo Prompt tiene otros campos obligatorios, ajustamos ese INSERT.
+
+6. Probar
+
+Haz el mismo POST /chat.
+
+Ahora la personalidad ya no viene del código:
+
+POST /chat
+   ↓
+PromptService
+   ↓
+PromptRepository
+   ↓
+PostgreSQL
+   ↓
+SYSTEM prompt
+   ↓
+Ollama
+
+Y lo mejor: puedes cambiar en DB:
+
+Eres un asistente de consultas...
+
+por:
+
+Eres un asistente especializado en turnos médicos...
+
+sin tocar el ConversationOrchestrator.
+
+Después de esto, el siguiente paso natural es crear el segundo prompt, SUMMARY, y empezar a implementar el resumidor automático cuando la conversación supere cierto límite de tokens.
+
+-----------------------------------------------------------------------------------------------------------------------------------------------------
+
+Perfecto. Entonces sigamos con el punto que quedó pendiente: usar el prompt desde la base y dejar de tenerlo hardcodeado.
+
+Como te apareció la columna type, yo aprovecharía eso y haría que el servicio busque por tipo en vez de por name, porque conceptualmente queda más claro para cosas como SYSTEM, SUMMARY, etc.
+
+Por ejemplo, si tu tabla Prompt tiene algo parecido a:
+
+model Prompt {
+  id        String   @id @default(uuid())
+  name      String
+  type      String
+  content   String
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+entonces cambia el repositorio a esto:
+
+async findActiveByType(type) {
+    return this.model.findFirst({
+        where: {
+            type,
+            active: true
+        },
+        orderBy: {
+            createdAt: "desc"
+        }
+    });
+}
+
+En PromptService.js:
+
+export default class PromptService {
+    constructor({
+        promptRepository,
+        logger
+    }) {
+        this.promptRepository = promptRepository;
+        this.logger = logger.child(this.constructor.name);
+    }
+
+    async getSystemPrompt() {
+        const prompt =
+            await this.promptRepository.findActiveByType("SYSTEM");
+
+        if (!prompt) {
+            throw new Error("No existe un prompt SYSTEM activo");
+        }
+
+        return prompt.content;
+    }
+}
+
+Y en ConversationOrchestrator:
+
+const systemPrompt =
+    await this.promptService.getSystemPrompt();
+
+const messages = [
+    {
+        role: "system",
+        content: systemPrompt
+    },
+    ...history.map(message => ({
+        role: message.role.toLowerCase(),
+        content: message.content
+    }))
+];
+
+const aiResponse =
+    await this.aiProvider.generate(messages);
+
+Ahora prueba cambiando el contenido del prompt en PostgreSQL, por ejemplo:
+
+UPDATE "Prompt"
+SET "content" =
+    'Eres un asistente muy breve. Responde siempre en español y en máximo dos oraciones.'
+WHERE "type" = 'SYSTEM'
+  AND "active" = true;
+
+Luego manda otra consulta al /chat.
+
+Si Qwen empieza a responder más corto, ya confirmamos que el prompt se está leyendo dinámicamente desde PostgreSQL.
+
+Después de eso, el siguiente paso que te recomiendo es implementar SUMMARY, porque ya tienes summaryLimit en la configuración. Ahí podremos evitar mandar todo el historial completo a Qwen cuando la conversación crezca.
+
+---------------------------------------------------------------------------------------------
 
 
 
@@ -7364,3 +7682,77 @@ docker ps
 la 1er vez
 npx prisma generate
 npm run dev
+
+
+BASE
+
+INSERT INTO "Channel" ("id", "name")
+VALUES (gen_random_uuid(), 'WEB');
+
+SELECT * FROM "User";
+
+
+INSERT INTO "Prompt" (
+    "id",
+    "name",
+    "type",
+    "content",
+    "active",
+    "createdAt",
+    "updatedAt"
+)
+VALUES (
+    gen_random_uuid(),
+    'SYSTEM',
+    'SYSTEM',
+    'Eres un asistente de consultas. Responde siempre en español de forma clara y breve.',
+    true,
+    NOW(),
+    NOW()
+);
+
+UPDATE "Prompt"
+SET "content" =
+    'Eres un asistente muy breve. Responde siempre en español y en máximo dos oraciones.'
+WHERE "type" = 'SYSTEM'
+  AND "active" = true;
+
+
+POSTMAN
+
+POST http://localhost:3000/chat
+/*{
+  "userId": "df7b9e45-ef33-403a-b92b-6afe7c0cb3dc",
+  "channelId": "dd32e503-753a-4173-95dd-7933abf875f7",
+  "text": "Hola"
+}
+{
+    "externalUserId": "123456",
+    "channel": "WEB",
+    "name": "Veronica",
+    "text": "Hola"
+}*/
+{
+  "externalUserId": "usuario-test-001",
+  "channel": "WEB",
+  "name": "Usuario Test",
+  "text": "¿Cuál es mi color favorito?"
+}
+
+GET http://localhost:3000/users/df7b9e45-ef33-403a-b92b-6afe7c0cb3dc
+{
+  "userId": "UUID_DE_UN_USUARIO_EXISTENTE",
+  "channelId": "UUID_DE_UN_CANAL_EXISTENTE",
+  "text": "Hola"
+}
+
+POST http://localhost:3000/users
+{
+  "externalId": "1",
+  "name": "Veronica",
+  "channel": "WEB"
+}
+/*{
+    "externalId": "1",
+    "name": "A"
+}*/

@@ -35,6 +35,7 @@ import AIProviderFactory
 
 import configService
     from "../config/ConfigService.js";
+import PromptService from "../application/services/PromptService.js";
 
 class Container {
 
@@ -49,8 +50,14 @@ class Container {
             configService.config.ai,
             this.logger
         );
-
+        const promptRepository = RepositoryFactory.prompt();
+        
         // Luego inyectarlas
+        this.promptService = new PromptService({
+            promptRepository,
+            logger: this.logger
+        });
+
         this.createUserUseCase = new CreateUserUseCase(userRepository,this.logger);
 
         this.findUserUseCase = new FindUserUseCase(userRepository,this.logger);
@@ -59,10 +66,18 @@ class Container {
             messageRepository,
             logger: this.logger,
         });
+        // this.conversationOrchestrator = new ConversationOrchestrator({
+        //     userRepository,
+        //     channelRepository,
+        //     conversationService: this.conversationService,
+        //     logger: this.logger
+        // });
         this.conversationOrchestrator = new ConversationOrchestrator({
             userRepository,
             channelRepository,
             conversationService: this.conversationService,
+            promptService: this.promptService,
+            aiProvider: this.aiProvider,
             logger: this.logger
         });
 

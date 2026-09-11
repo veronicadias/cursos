@@ -66,4 +66,34 @@ export default class ConversationService {
             message,
         };
     }
+
+    async getHistory(conversationId, limit = 20) {
+        return this.messageRepository.findLastMessages(
+            conversationId,
+            limit
+        );
+    }
+
+    async registerAssistantMessage({
+        conversationId,
+        text,
+        tokens = null,
+        promptTokens = null,
+        completionTokens = null
+    }) {
+        const message = await this.messageRepository.create({
+            conversationId,
+            role: "ASSISTANT",
+            content: text,
+            tokens,
+            promptTokens,
+            completionTokens
+        });
+
+        await this.conversationRepository.updateLastMessageAt(
+            conversationId
+        );
+
+        return message;
+    }
 }

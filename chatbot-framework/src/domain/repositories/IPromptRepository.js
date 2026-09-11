@@ -8,4 +8,8 @@ export default class IPromptRepository extends IRepository {
 
     }
 
+    async findActiveByName(name) {
+        throw new Error("Method not implemented.");
+    }
+
 }

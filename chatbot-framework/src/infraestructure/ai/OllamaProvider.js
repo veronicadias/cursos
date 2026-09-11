@@ -12,6 +12,11 @@ export default class OllamaProvider extends IAIProvider {
         super();
 
         this.logger = logger.child(this.constructor.name);
+        console.log({
+            model,
+            baseUrl,
+            temperature
+        });
 
         this.model = new ChatOllama({
             model,
